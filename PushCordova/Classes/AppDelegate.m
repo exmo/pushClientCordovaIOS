@@ -43,38 +43,16 @@
 
     [cookieStorage setCookieAcceptPolicy:NSHTTPCookieAcceptPolicyAlways];
 
+    int cacheSizeMemory = 8 * 1024 * 1024; // 8MB
+    int cacheSizeDisk = 32 * 1024 * 1024; // 32MB
+    NSURLCache* sharedCache = [[NSURLCache alloc] initWithMemoryCapacity:cacheSizeMemory diskCapacity:cacheSizeDisk diskPath:@"nsurlcache"];
+    [NSURLCache setSharedURLCache:sharedCache];
+
     self = [super init];
     return self;
 }
 
-#pragma mark PushNotification
-//- (void)application:(UIApplication*)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData*)deviceToken{
-//	NSLog(@"My token is: %@", deviceToken);
-//    NSLog(@"Converted token: %@",[self convertTokenToDeviceID:deviceToken]);
-//    
-//    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-//    [defaults setObject:[self convertTokenToDeviceID:deviceToken] forKey:@"TOKEN"];
-//    [defaults synchronize];
-//}
-//
-//- (void)application:(UIApplication*)application didFailToRegisterForRemoteNotificationsWithError:(NSError*)error{
-//	NSLog(@"Failed to get token, error: %@", error);
-//}
-//
-///* Metodo utiliário para retirar os espaços do token */
-//- (NSString *)convertTokenToDeviceID:(NSData *)token {
-//    NSMutableString *deviceID = [NSMutableString string];
-//    // iterate through the bytes and convert to hex
-//    unsigned char *ptr = (unsigned char *)[token bytes];
-//    for (NSInteger i=0; i < 32; ++i) {
-//        [deviceID appendString:[NSString stringWithFormat:@"%02x", ptr[i]]];
-//    }
-//    return deviceID;
-//}
-
 #pragma mark UIApplicationDelegate implementation
-
-// TOKEN: 
 
 /**
  * This is main kick off after the app inits, the views and Settings are setup here. (preferred - iOS4 and up)
@@ -87,9 +65,11 @@
     self.window.autoresizesSubviews = YES;
 
     self.viewController = [[[MainViewController alloc] init] autorelease];
-    self.viewController.useSplashScreen = YES;
-    self.viewController.wwwFolderName = @"www";
-    self.viewController.startPage = @"index.html";
+   // self.viewController.useSplashScreen = YES;
+
+    // Set your app's start page by setting the <content src='foo.html' /> tag in config.xml.
+    // If necessary, uncomment the line below to override it.
+    // self.viewController.startPage = @"index.html";
 
     // NOTE: To customize the view's frame size (which defaults to full screen), override
     // [self.viewController viewWillAppear:] in your view controller.
@@ -97,24 +77,6 @@
     self.window.rootViewController = self.viewController;
     [self.window makeKeyAndVisible];
 
-
-    // Habilitanto para push notification
-    [[UIApplication sharedApplication] registerForRemoteNotificationTypes:
-         (UIRemoteNotificationTypeBadge | UIRemoteNotificationTypeSound | UIRemoteNotificationTypeAlert)];
-    
-    
-    /* Handler when launching application from push notification */
-    // PushNotification - Handle launch from a push notification
-    NSDictionary* userInfo = [launchOptions objectForKey:UIApplicationLaunchOptionsRemoteNotificationKey];
-    if(userInfo) {
-        PushNotification *pushHandler = [self.viewController getCommandInstance:@"PushNotification"];
-        NSMutableDictionary* mutableUserInfo = [userInfo mutableCopy];
-        [mutableUserInfo setValue:@"1" forKey:@"applicationLaunchNotification"];
-        [mutableUserInfo setValue:@"0" forKey:@"applicationStateActive"];
-        [pushHandler.pendingNotifications addObject:mutableUserInfo];
-    }
-    /* end code block */
-    
     return YES;
 }
 
@@ -152,56 +114,9 @@
     return supportedInterfaceOrientations;
 }
 
-
-/* START BLOCK */
-
-#pragma - PushNotification delegation
-
-- (void)application:(UIApplication*)app didRegisterForRemoteNotificationsWithDeviceToken:(NSData*)deviceToken
+- (void)applicationDidReceiveMemoryWarning:(UIApplication*)application
 {
-    NSLog(@"%@", [self convertTokenToDeviceID:deviceToken]);
-    PushNotification* pushHandler = [self.viewController getCommandInstance:@"PushNotification"];
-    [pushHandler didRegisterForRemoteNotificationsWithDeviceToken:deviceToken];
+    [[NSURLCache sharedURLCache] removeAllCachedResponses];
 }
-
-- (void)application:(UIApplication*)app didFailToRegisterForRemoteNotificationsWithError:(NSError*)error
-{
-    PushNotification* pushHandler = [self.viewController getCommandInstance:@"PushNotification"];
-    [pushHandler didFailToRegisterForRemoteNotificationsWithError:error];
-}
-
-- (void)application:(UIApplication*)application didReceiveRemoteNotification:(NSDictionary*)userInfo
-{
-    PushNotification* pushHandler = [self.viewController getCommandInstance:@"PushNotification"];
-    NSMutableDictionary* mutableUserInfo = [userInfo mutableCopy];
-    
-    // Get application state for iOS4.x+ devices, otherwise assume active
-    UIApplicationState appState = UIApplicationStateActive;
-    if ([application respondsToSelector:@selector(applicationState)]) {
-        appState = application.applicationState;
-    }
-    
-    [mutableUserInfo setValue:@"0" forKey:@"applicationLaunchNotification"];
-    if (appState == UIApplicationStateActive) {
-        [mutableUserInfo setValue:@"1" forKey:@"applicationStateActive"];
-        [pushHandler didReceiveRemoteNotification:mutableUserInfo];
-    } else {
-        [mutableUserInfo setValue:@"0" forKey:@"applicationStateActive"];
-        [mutableUserInfo setValue:[NSNumber numberWithDouble: [[NSDate date] timeIntervalSince1970]] forKey:@"timestamp"];
-        [pushHandler.pendingNotifications addObject:mutableUserInfo];
-    }
-}
-
-- (NSString *)convertTokenToDeviceID:(NSData *)token {
-    NSMutableString *deviceID = [NSMutableString string];
-    // iterate through the bytes and convert to hex
-    unsigned char *ptr = (unsigned char *)[token bytes];
-    for (NSInteger i=0; i < 32; ++i) {
-        [deviceID appendString:[NSString stringWithFormat:@"%02x", ptr[i]]];
-    }
-    return deviceID;
-}
-
-/* STOP BLOCK */
 
 @end
